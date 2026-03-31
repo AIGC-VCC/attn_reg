@@ -75,7 +75,7 @@ class InteractiveAttentionViewer:
         log_mean_map = np.log(mean_map_2d + 1e-6)
         
         # 6. 并排画图验证
-        fig_top, axes = plt.subplots(1, 2, figsize=(16, 7))
+        fig_top, axes = plt.subplots(1, 2, figsize=(10, 4.5))
         fig_top.canvas.manager.set_window_title(f"Top {top_percent}% Attention Sinks")
         
         # --- Left: Original Mean ---
@@ -140,7 +140,7 @@ class InteractiveAttentionViewer:
 
     def setup_ui(self):
         # 使用 GridSpec 创建 2x2 布局，下面一行合并用来显示柱状图
-        self.fig = plt.figure(figsize=(16, 10))
+        self.fig = plt.figure(figsize=(12, 7))
         self.fig.canvas.manager.set_window_title("FLUX.1 Joint Attention Viewer")
         gs = gridspec.GridSpec(2, 2, height_ratios=[2.5, 1])
 
