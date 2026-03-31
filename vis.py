@@ -45,7 +45,98 @@ class InteractiveAttentionViewer:
         self.img_array = img_tensor.permute(1, 2, 0).numpy()
 
         print("Data loaded successfully! Initializing UI...")
+        self.plot_top_k_attention_sinks(top_percent=4)
         self.setup_ui()
+
+    def plot_top_k_attention_sinks(self, top_percent=5):
+        print(f"Finding top {top_percent}% attention sinks based on Mean...")
+        
+        # 1. 提取 L2L
+        l2l_matrix = self.attn_matrix[self.text_seq_len:, self.text_seq_len:]
+
+        # 2. 计算基础指标
+        mean_attn = l2l_matrix.mean(axis=0)
+        min_attn = l2l_matrix.min(axis=0)
+        
+        # 3. 计算组合指标 (相乘)
+        combined_attn = mean_attn * min_attn
+        
+        # 3. 计算百分位数阈值 (比如输入 5%，就是取第 95 百分位的值作为门槛)
+        threshold = np.percentile(combined_attn, 100 - top_percent)
+        
+        # 4. 生成布尔掩码 (大于等于阈值的设为 True/1，否则为 False/0)
+        sink_mask = combined_attn >= threshold
+        
+        # 5. 变形回 2D 图像网格
+        mean_map_2d = combined_attn.reshape((self.h_tok, self.w_tok))
+        mask_map_2d = sink_mask.reshape((self.h_tok, self.w_tok))
+        
+        # 均值图继续用 log 显示以便观察细节
+        log_mean_map = np.log(mean_map_2d + 1e-6)
+        
+        # 6. 并排画图验证
+        fig_top, axes = plt.subplots(1, 2, figsize=(16, 7))
+        fig_top.canvas.manager.set_window_title(f"Top {top_percent}% Attention Sinks")
+        
+        # --- Left: Original Mean ---
+        im_mean = axes[0].imshow(log_mean_map, cmap='inferno')
+        axes[0].set_title("Mean Received Attention (Log)")
+        axes[0].axis('off')
+        fig_top.colorbar(im_mean, ax=axes[0], fraction=0.046, pad=0.04)
+        
+        # --- Right: Top X% Mask ---
+        # 这是一个二值图，黄色的点就是我们找出来的前 X% 的 Sink tokens
+        im_mask = axes[1].imshow(mask_map_2d, cmap='viridis') 
+        axes[1].set_title(f"Top {top_percent}% Sinks Mask (Threshold: {threshold:.4f})")
+        axes[1].axis('off')
+        fig_top.colorbar(im_mask, ax=axes[1], fraction=0.046, pad=0.04)
+        
+        plt.tight_layout()
+        plt.show()
+
+    def plot_advanced_sink_metrics(self):
+        print("Calculating sink metrics: Mean, Min, and Mean × Min...")
+        
+        # 1. 提取 L2L
+        l2l_matrix = self.attn_matrix[self.text_seq_len:, self.text_seq_len:]
+        
+        # 2. 计算基础指标
+        mean_attn = l2l_matrix.mean(axis=0)
+        min_attn = l2l_matrix.min(axis=0)
+        
+        # 3. 计算组合指标 (相乘)
+        combined_attn = mean_attn * min_attn
+        
+        # --- 变形回 2D ---
+        mean_map_2d = mean_attn.reshape((self.h_tok, self.w_tok))
+        min_map_2d = min_attn.reshape((self.h_tok, self.w_tok))
+        combined_map_2d = combined_attn.reshape((self.h_tok, self.w_tok))
+        
+        # --- 画图 ---
+        fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+        fig.canvas.manager.set_window_title("Attention Sink Detectors: Mean, Min, Product")
+        
+        # 1. Mean (Log)
+        im0 = axes[0].imshow(np.log(mean_map_2d + 1e-8), cmap='inferno')
+        axes[0].set_title("1. Mean Received Attention (Log)")
+        axes[0].axis('off')
+        fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
+        
+        # 2. Min (Log)
+        im1 = axes[1].imshow(np.log(min_map_2d + 1e-8), cmap='inferno')
+        axes[1].set_title("2. Minimum Received Attention (Log)")
+        axes[1].axis('off')
+        fig.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
+        
+        # 3. Mean * Min (Log)
+        # 注意这里用 1e-16 因为相乘后数值会更小
+        im2 = axes[2].imshow(np.log(combined_map_2d + 1e-16), cmap='inferno')
+        axes[2].set_title("3. Mean × Min (Log)")
+        axes[2].axis('off')
+        fig.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
+        
+        plt.tight_layout()
+        plt.show()
 
     def setup_ui(self):
         # 使用 GridSpec 创建 2x2 布局，下面一行合并用来显示柱状图

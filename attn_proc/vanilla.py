@@ -140,17 +140,18 @@ class VanillaFluxAttnProcessor:
         # =====================================================================
         # 🌟 Store Image-to-Image Attention Maps
         # =====================================================================
-        # Reshape to separate batch and heads: (batch_size, heads, S_img, S_img)
-        attn_to_save = attention_probs.view(self.batch_size, -1, self.seq_len, self.seq_len)
+        if block_type == TransType.SINGLE:
+            # Reshape to separate batch and heads: (batch_size, heads, S_img, S_img)
+            attn_to_save = attention_probs.view(self.batch_size, -1, self.seq_len, self.seq_len)
 
-        # Average across all heads to reduce memory: (batch_size, S_img, S_img)
-        attn_avg = attn_to_save.mean(dim=1)
+            # Average across all heads to reduce memory: (batch_size, S_img, S_img)
+            attn_avg = attn_to_save.mean(dim=1)
 
-        # Accumulate the attention maps
-        if self.attention_store is None:
-            self.attention_store = attn_avg
-        else:
-            self.attention_store += attn_avg
+            # Accumulate the attention maps
+            if self.attention_store is None:
+                self.attention_store = attn_avg
+            else:
+                self.attention_store += attn_avg
         # =====================================================================
 
         hidden_states = torch.bmm(attention_probs, value)
