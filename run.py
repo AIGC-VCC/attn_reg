@@ -4,18 +4,19 @@ import numpy as np
 from diffusers import FluxPipeline
 from diffusers.utils import load_image
 from attn_proc.vanilla import VanillaFluxAttnProcessor
+from attn_proc.sink_eraser import SinkEraserFluxAttnProcessor
 
 pipe = FluxPipeline.from_pretrained("/home/frain/Documents/FLUX.1-dev", torch_dtype=torch.bfloat16)
 pipe.enable_sequential_cpu_offload()
 
 num_inference_steps = 50
 prompt=[
-"The quick brown fox jumps over the lazy dog"
+    "A cat holding a sign that says hello world"
 ]
 out_width = 1024
 out_height = 1024
 
-attn_processor = VanillaFluxAttnProcessor(pipe, prompt, out_width, out_height)
+attn_processor = SinkEraserFluxAttnProcessor(pipe, prompt, out_width, out_height)
 
 image = pipe(
     prompt=prompt,

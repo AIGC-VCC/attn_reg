@@ -45,7 +45,7 @@ class InteractiveAttentionViewer:
         self.img_array = img_tensor.permute(1, 2, 0).numpy()
 
         print("Data loaded successfully! Initializing UI...")
-        self.plot_top_k_attention_sinks(top_percent=4)
+        self.plot_top_k_attention_sinks(top_percent=3.5)
         self.setup_ui()
 
     def plot_top_k_attention_sinks(self, top_percent=5):
@@ -58,7 +58,7 @@ class InteractiveAttentionViewer:
         mean_attn = l2l_matrix.mean(axis=0)
         min_attn = l2l_matrix.min(axis=0)
         
-        # 3. 计算组合指标 (相乘)
+        # 2. 计算组合指标 (相乘)
         combined_attn = mean_attn * min_attn
         
         # 3. 计算百分位数阈值 (比如输入 5%，就是取第 95 百分位的值作为门槛)
@@ -68,19 +68,16 @@ class InteractiveAttentionViewer:
         sink_mask = combined_attn >= threshold
         
         # 5. 变形回 2D 图像网格
-        mean_map_2d = combined_attn.reshape((self.h_tok, self.w_tok))
+        combined_map_2d = combined_attn.reshape((self.h_tok, self.w_tok))
         mask_map_2d = sink_mask.reshape((self.h_tok, self.w_tok))
-        
-        # 均值图继续用 log 显示以便观察细节
-        log_mean_map = np.log(mean_map_2d + 1e-6)
         
         # 6. 并排画图验证
         fig_top, axes = plt.subplots(1, 2, figsize=(10, 4.5))
         fig_top.canvas.manager.set_window_title(f"Top {top_percent}% Attention Sinks")
         
         # --- Left: Original Mean ---
-        im_mean = axes[0].imshow(log_mean_map, cmap='inferno')
-        axes[0].set_title("Mean Received Attention (Log)")
+        im_mean = axes[0].imshow(np.log(combined_map_2d + 1e-6), cmap='inferno')
+        axes[0].set_title("Mean x Min (Log)")
         axes[0].axis('off')
         fig_top.colorbar(im_mean, ax=axes[0], fraction=0.046, pad=0.04)
         
@@ -92,6 +89,18 @@ class InteractiveAttentionViewer:
         fig_top.colorbar(im_mask, ax=axes[1], fraction=0.046, pad=0.04)
         
         plt.tight_layout()
+        # --- 新增：提取并打印黑洞的全局索引 ---
+        # 1. 找到 mask 中为 True 的一维索引 (相对于图像 latent_seq_len)
+        latent_sink_indices = np.where(sink_mask.flatten())[0]
+        # 2. 加上 text_seq_len 偏移量，变成在整个 seq_len 中的全局索引
+        global_sink_indices = latent_sink_indices + self.text_seq_len
+        
+        print(f"\n🚀 --- Attention Sinks Discovered ({top_percent}%) ---")
+        print(f"Total sinks found: {len(global_sink_indices)}")
+        print(f"Copy this list to your run.py:")
+        # 打印成可以直接复制的 Python 列表格式
+        print(f"SINK_INDICES = {global_sink_indices.tolist()}")
+
         plt.show()
 
     def plot_advanced_sink_metrics(self):
